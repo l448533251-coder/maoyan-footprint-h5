@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>观演足迹 · 方案对比</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{margin:0;padding:28px 18px 40px;
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    background:linear-gradient(160deg,#2a0a48,#4a1a6e);min-height:100vh;color:#fff;}
+  .wrap{max-width:560px;margin:0 auto;}
+  h1{font-size:24px;margin:0 0 6px;font-weight:700;}
+  .sub{font-size:14px;opacity:.7;margin:0 0 26px;line-height:1.6;}
+  .card{
+    display:block;text-decoration:none;color:inherit;
+    background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);
+    border-radius:16px;padding:18px 20px;margin-bottom:14px;
+    transition:background .2s,transform .2s;
+  }
+  .card:active{transform:scale(.98);}
+  .card:hover{background:rgba(255,255,255,.17);}
+  .card .tag{display:inline-block;font-size:11px;letter-spacing:.5px;
+    background:rgba(255,255,255,.2);border-radius:20px;padding:3px 10px;margin-bottom:10px;}
+  .card h2{font-size:18px;margin:0 0 6px;font-weight:600;}
+  .card p{font-size:13px;opacity:.72;margin:0;line-height:1.6;}
+  .go{float:right;font-size:20px;opacity:.6;margin-top:-28px;}
+  .cur{border-color:#FFA100;background:rgba(255,161,0,.14);}
+  .cur .tag{background:#FFA100;color:#2a0a48;font-weight:700;}
+  .foot{margin-top:26px;font-size:12px;opacity:.5;text-align:center;line-height:1.8;}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>观演足迹 H5 · 方案对比</h1>
+    <p class="sub">点击任一方案查看完整动画。每个方案都是独立页面，手机直接打开即可，点击地图区域可重播。</p>
+
+    <a class="card cur" href="index.html">
+      <span class="tag">当前主版本</span>
+      <h2>定帧箭头消失</h2>
+      <p>36px 短流光；绘制过程中箭头与流光同行并一起渐隐，定帧无箭头。图标提前 100ms 渐显弹出。</p>
+      <span class="go">›</span>
+    </a>
+
+    <a class="card" href="short-flow/index.html">
+      <span class="tag">短流光方案</span>
+      <h2>短流光方案</h2>
+      <p>36px 短流光；箭头到达后停在图标尖端保留，定帧可见。</p>
+      <span class="go">›</span>
+    </a>
+
+    <a class="card" href="plan1/index.html">
+      <span class="tag">方案1</span>
+      <h2>方案1</h2>
+      <p>早期冻结版本：流光较长（最长 64px），箭头定帧保留，图标在箭头到达时出现。</p>
+      <span class="go">›</span>
+    </a>
+
+    <div class="foot">GitHub Pages 永久链接 · 任意网络可访问</div>
+  </div>
+</body>
+</html>
