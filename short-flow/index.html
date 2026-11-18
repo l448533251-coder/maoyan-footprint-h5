@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>观演足迹</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:#2a0a48;padding:16px 0;
+  }
+  .stage{width:min(750px,100vw);position:relative;}
+  .card-top,.card-bottom,.map{display:block;width:100%;}
+  .card-top img,.card-bottom img{display:block;width:100%;}
+
+  .map{position:relative;width:92%;margin:0 4%;aspect-ratio:690/350;overflow:hidden;background:#f1f3fb;cursor:pointer;}
+  .map .base{position:absolute;inset:0;width:100%;height:100%;display:block;}
+
+  /* 北京常驻地头像 */
+  .bj-avatar{
+    position:absolute;left:calc(454/690*100%);top:calc(161.5/350*100%);
+    width:calc(46/690*100%);aspect-ratio:1;
+    transform:translate(-50%,-50%);border-radius:50%;
+    background-image:url('assets/avatar.png');background-size:cover;background-position:center 12%;
+    border:2.5px solid #fff;box-shadow:0 2px 8px rgba(40,30,90,.3);z-index:2;
+  }
+
+  /* 红色坐标图标（独立切图）—— 渐显 + 平滑弹性缩放 120→80→100 */
+  .pin{
+    position:absolute;width:calc(50/690*100%);height:auto;
+    transform:translate(-50%,-100%) scale(1);
+    opacity:0;visibility:hidden;z-index:3;
+    will-change:transform,opacity;
+  }
+  .pin.show{visibility:visible;animation:pinPop 1s both;}
+  @keyframes pinPop{
+    0%{
+      transform:translate(-50%,-100%) scale(1.2);
+      opacity:0;
+      animation-timing-function:cubic-bezier(.42,0,.58,1);   /* 平滑收缩 + 渐显 */
+    }
+    50%{
+      transform:translate(-50%,-100%) scale(.8);
+      opacity:1;
+      animation-timing-function:cubic-bezier(.34,1.32,.64,1); /* 柔和回弹 */
+    }
+    100%{
+      transform:translate(-50%,-100%) scale(1);
+      opacity:1;
+    }
+  }
+
+  /* 橙色三角箭头（独立切图）—— 仅推进过程中出现，到达即淡出 */
+  .arrow-img{
+    position:absolute;width:calc(22/690*100%);height:auto;
+    transform:translate(-50%,-50%);opacity:0;visibility:hidden;z-index:12;
+    pointer-events:none;
+  }
+
+  /* 线 + 流光 SVG —— 最上层，不被图标压住 */
+  .map svg.overlay{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:10;pointer-events:none;}
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card-top"><img src="assets/card_top.png" alt=""></div>
+
+    <div class="map" id="map">
+      <img class="base" src="assets/map_initial.png" alt="map">
+
+      <div class="bj-avatar"></div>
+
+      <!-- 红色坐标图标（独立切图） -->
+      <img class="pin" id="pin-hohhot"       src="assets/pin.png" style="left:calc(215/690*100%);top:calc(88/350*100%);" alt="">
+      <img class="pin" id="pin-taiyuan"      src="assets/pin.png" style="left:calc(229/690*100%);top:calc(273/350*100%);" alt="">
+      <img class="pin" id="pin-shijiazhuang" src="assets/pin.png" style="left:calc(365/690*100%);top:calc(282/350*100%);" alt="">
+      <img class="pin" id="pin-tianjin"      src="assets/pin.png" style="left:calc(498/690*100%);top:calc(220/350*100%);" alt="">
+
+      <!-- 线 + 流光（SVG，最上层） -->
+      <svg class="overlay" viewBox="0 0 690 350" preserveAspectRatio="none">
+        <g id="lines"></g>
+      </svg>
+
+      <!-- 橙色三角箭头（独立切图，最上层，仅推进中出现） -->
+      <img class="arrow-img" id="arrow-hohhot"       src="assets/arrow_fwd.png" alt="">
+      <img class="arrow-img" id="arrow-taiyuan"      src="assets/arrow_fwd.png" alt="">
+      <img class="arrow-img" id="arrow-shijiazhuang" src="assets/arrow_fwd.png" alt="">
+      <img class="arrow-img" id="arrow-tianjin"      src="assets/arrow_fwd.png" alt="">
+    </div>
+
+    <div class="card-bottom"><img src="assets/card_bottom.png" alt=""></div>
+  </div>
+
+<script>
+(function(){
+  // 设计稿精确矢量路径（sketch 导出），坐标即地图区 690x350
+  const LINES=[
+    {key:'hohhot',       main:'M454,161.5 C402,89.1667 325.03545,62.81199 223.10635,82.43598'},
+    {key:'taiyuan',      main:'M454,161.5 C360,155.5 286.666667,190.666667 234,267'},
+    {key:'shijiazhuang', main:'M454,161.5 C449.333333,215 421.833333,253.5 371.5,277'},
+    {key:'tianjin',      main:'M454,161.5 C462.7339,187.8262 474.62604,205.10545 489.67642,213.33774'}
+  ];
+  const NS='http://www.w3.org/2000/svg';
+  const group=document.getElementById('lines');
+  const map=document.getElementById('map');
+  const FLOW_COLOR='#FFA100';   // 流光颜色
+
+  const routes=LINES.map(cfg=>{
+    const g=document.createElementNS(NS,'g');
+
+    // 浅橙主线（30% 透明）—— 逐步绘制
+    const main=document.createElementNS(NS,'path');
+    main.setAttribute('d',cfg.main);main.setAttribute('fill','none');
+    main.setAttribute('stroke',FLOW_COLOR);main.setAttribute('stroke-width','5');
+    main.setAttribute('stroke-linecap','round');main.setAttribute('opacity','0.3');
+
+    // 流光：一段不透明短橙线（#FFA100 / 5px），沿主线从北京流向目标
+    const flow=document.createElementNS(NS,'path');
+    flow.setAttribute('d',cfg.main);flow.setAttribute('fill','none');
+    flow.setAttribute('stroke',FLOW_COLOR);flow.setAttribute('stroke-width','5');
+    flow.setAttribute('stroke-linecap','round');
+    flow.style.opacity='0';
+
+    g.appendChild(main);g.appendChild(flow);
+    group.appendChild(g);
+
+    const len=main.getTotalLength();
+    return {
+      key:cfg.key, main, flow, len,
+      pin:document.getElementById('pin-'+cfg.key),
+      arrow:document.getElementById('arrow-'+cfg.key)
+    };
+  });
+
+  const DURATION=1000, GAP=1000, PIN_LEAD=100, FLOW_LEN=36;   // 流光长 36px / 每次 1s；图标提前 100ms
+  let startTs=0, rafId=null;
+
+  function reset(){
+    if(rafId)cancelAnimationFrame(rafId);
+    routes.forEach(r=>{
+      r.main.style.strokeDasharray=r.len;
+      r.main.style.strokeDashoffset=r.len;
+      r.flow.style.opacity='0';
+      r.pin.classList.remove('show');
+      r.arrow.style.visibility='hidden';
+      r.arrow.style.opacity='0';
+    });
+  }
+  const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+
+  // SVG 坐标 -> 地图区百分比定位
+  function place(img,x,y,ang){
+    img.style.left=(x/690*100)+'%';
+    img.style.top=(y/350*100)+'%';
+    img.style.transform='translate(-50%,-50%) rotate('+ang+'deg)';
+  }
+
+  function frame(now){
+    let done=true;
+    routes.forEach((r,i)=>{
+      const local=now-startTs-i*GAP;
+      if(local<0){done=false;return;}
+      const p=Math.min(local/DURATION,1), e=ease(p), head=r.len*e;
+
+      // 浅橙主线逐步绘制
+      r.main.style.strokeDashoffset=r.len*(1-e);
+
+      // 接近终点时逐渐淡出，衔接图标渐显
+      const fade=p<0.84?1:Math.max(0,(1-p)/0.16);
+
+      // 流光 #FFA100：36px 短亮段沿路径推进
+      if(p>0&&p<1){
+        r.flow.style.opacity=fade;
+        r.flow.style.strokeDasharray=FLOW_LEN+' '+(r.len+FLOW_LEN+40);
+        r.flow.style.strokeDashoffset=FLOW_LEN-head;
+      }else{
+        r.flow.style.opacity='0';
+      }
+
+      // 橙色三角箭头：沿线推进，到达后停在终点保留（定帧可见）
+      const cur=r.main.getPointAtLength(head);
+      const pre=r.main.getPointAtLength(Math.max(0,head-2));
+      const ang=Math.atan2(cur.y-pre.y,cur.x-pre.x)*180/Math.PI;
+      if(p>0){
+        r.arrow.style.visibility='visible';
+        r.arrow.style.opacity='1';
+        place(r.arrow,cur.x,cur.y,ang);
+      }
+
+      // 红色图标：箭头到达前 100ms 开始渐显 + 平滑缩放弹出
+      if(local>=DURATION-PIN_LEAD&&!r.pin.classList.contains('show'))r.pin.classList.add('show');
+      if(p<1)done=false;
+    });
+    if(!done)rafId=requestAnimationFrame(frame);
+  }
+  function play(){reset();void document.body.offsetWidth;startTs=performance.now()+250;rafId=requestAnimationFrame(frame);}
+  map.addEventListener('click',play);   // 点击地图重播
+  play();
+})();
+</script>
+</body>
+</html>
